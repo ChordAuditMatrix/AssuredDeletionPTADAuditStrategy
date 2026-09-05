@@ -1,10 +1,10 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
 /* Native PTAD unlink -> overwrite -> challenge/response lifecycle. */
 #include "AssuredDeletionPTADAuditStrategy/strategy.h"
+#include "AssuredDeletionPTADAuditStrategy/deletion_state_store.h"
 #include "ChordAuditMatrixLib/interfaces/audit/artifact_factory.h"
 #include "ChordAuditMatrixLib/interfaces/audit/messages/audit_data_map.h"
 #include "ChordAuditMatrixLib/interfaces/audit/messages/in_memory_tags.h"
-#include "DHTDynamicAuditStrategy/state_stores/dynamic_hash_table_state_store.h"
 #include <algorithm>
 #include <json/json.h>
 #include <map>
@@ -138,6 +138,9 @@ public:
           std::make_shared<PTADChallenges>());
     if (k == AuditArtifactKind::Proves)
       return std::static_pointer_cast<Proves>(std::make_shared<PTADProof>());
+    if (k == AuditArtifactKind::DynamicBlockMetadata)
+      return std::static_pointer_cast<BlockMetadata>(
+          std::make_shared<PTADDeletion::DeletionBlockMetadata>());
     throw std::runtime_error("PTAD artifact unavailable");
   }
 };
@@ -150,8 +153,9 @@ AssuredDeletionPTADAuditStrategy::stateMaintenanceParty() const {
   return StateMaintenanceParty::Public;
 }
 std::shared_ptr<DynamicPdpStateStore>
-AssuredDeletionPTADAuditStrategy::createStateStore(BlockMetadataFactory) const {
-  return std::make_shared<DHTDynamic::DynamicHashTableStateStore>();
+AssuredDeletionPTADAuditStrategy::createStateStore(
+    BlockMetadataFactory factory) const {
+  return std::make_shared<PTADDeletion::DeletionStateStore>(std::move(factory));
 }
 void AssuredDeletionPTADAuditStrategy::setAlgorithm(
     CAMatrix::Crypto::CryptoGeneralAlgorithmPtr x) {
